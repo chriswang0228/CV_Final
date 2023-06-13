@@ -2,14 +2,25 @@ import os
 import numpy as np
 import cv2
 from tqdm import tqdm
+import shutil
 from utils import AverageMeter
 import torch
 from torchvision import transforms as T
-import torch.nn.functional as F
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument("--testing_path", help="the path of testing dataset")
+parser.add_argument("--submission_path", help="the path of submission")
+parser.add_argument("--model_path", help="the path of the model inference")
+args = parser.parse_args()
+
+os.mkdir(args.testing_path+f'/submission/')
+for s in ['S5','S6','S7','S8']:
+    for v in os.listdir(args.testing_path+f'/{s}/'):
+        for frame in os.listdir(args.testing_path+f'/{s}/{v}'):
+            shutil.copy(args.testing_path+f'/{s}/{v}/{frame}', args.testing_path+f'/submission/{s}_{v}_{frame}')
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model=torch.load('../model_weight/DLV3.pt').eval().to(device)
-exp_name = '4'
+model=torch.load(args.model_path).eval().to(device)
 mean=[0.485, 0.456, 0.406]
 std=[0.229, 0.224, 0.225]
 t = T.Compose([T.ToTensor(), T.Normalize(mean, std)])
@@ -27,7 +38,7 @@ def my_awesome_algorithm(image):
     return result, conf
     
 
-def benchmark(dataset_path: str, subjects: list, times:str):
+def benchmark(dataset_path: str, subjects: list):
     """Compute the weighted IoU and average true negative rate
     Args:
         dataset_path: the dataset path
@@ -36,16 +47,15 @@ def benchmark(dataset_path: str, subjects: list, times:str):
     Returns: benchmark score
 
     """
-    os.mkdir(f'../submission/{times}')
-    os.mkdir(f'../submission/{times}/solution')
+    os.mkdir(args.submission_path+'/solution')
     output_conf = []
     sequence_idx = 0
     for subject in subjects:
-        os.mkdir(f'../submission/{times}/solution/{subject}')
-        length = len(os.listdir(f'../dataset/{subject}/{subject}/'))
+        os.mkdir(args.submission_path+f'/solution/{subject}')
+        length = len(os.listdir(dataset_path+f'/{subject}/'))
         for action_number in range(length):
-            os.mkdir(f'../submission/{times}/solution/{subject}/{action_number+1:02d}')
-            image_folder = os.path.join(dataset_path, subject, subject, f'{action_number + 1:02d}')
+            os.mkdir(args.submission_path+f'/solution/{subject}/{action_number+1:02d}')
+            image_folder = os.path.join(dataset_path, subject, f'{action_number + 1:02d}')
             sequence_idx += 1
             nr_image = len([name for name in os.listdir(image_folder) if name.endswith('.jpg')])
             output_conf = []
@@ -54,10 +64,10 @@ def benchmark(dataset_path: str, subjects: list, times:str):
                 image = cv2.imread(image_name)
                 output, conf = my_awesome_algorithm(image)
                 output_conf.append(conf)
-                cv2.imwrite(f'../submission/{times}/solution/{subject}/{action_number+1:02d}/{idx}.png', output)
-            np.savetxt(f'../submission/{times}/solution/{subject}/{action_number+1:02d}/conf.txt', output_conf, fmt="%d", delimiter="\r\n")
+                cv2.imwrite(args.submission_path+f'/solution/{subject}/{action_number+1:02d}/{idx}.png', output)
+            np.savetxt(args.submission_path+f'/solution/{subject}/{action_number+1:02d}/conf.txt', output_conf, fmt="%d", delimiter="\r\n")
 
 if __name__ == '__main__':
-    dataset_path = '../dataset/'
+    dataset_path = args.testing_path
     subjects = ['S5', 'S6', 'S7', 'S8']
-    benchmark(dataset_path, subjects, exp_name)
+    benchmark(dataset_path, subjects)

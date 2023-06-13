@@ -3,36 +3,42 @@
 
 ## Getting Started
 
-Structure:
-- ```dataset/img```: all images in S1~S4
-- ```dataset/mask```: all masks in S1~S4
+### Structure
+
 - ```model_weight/```: best checkpoint of the training
-- ```evaluation/```: all the model mIoU in test set
-- ```l_curve/```: model learning curve
 - ```submission/```: the final subission
 - ```code/train.py```: code for model training
 - ```code/config.py```: hyperparameter for model training
-- ```code/valid.py```: code for calculating the mIoU
-- ```code/eval.py```: code for evaluate the score
 - ```code/submission.py```: code for generating the final subission
 
-#### Dataset
-Download the full S1 to S8 dataset in ```dataset/img```, and copy the S1 to S4 images and masks to ```dataset/img``` and ```dataset/mask```
 
-#### Training and Testing
+### Training and Testing
 
-To train a network, modify the ```config.py ``` and call:
+To train a network, call ```train.py ```, and fill two arguments training dataset path and output model path just like:
 
-```python train.py ``` 
+```python3 train.py --training_path ../dataset/  --output_model ../model_weight/UPP.pt``` 
+
+There are two folders ```img ``` and  ```mask ``` adding to training path
 
 Once a model has been trained, you can modify the arch name in ```valid.py ``` line 120 and evaluate it with:
 
-```python valid.py```
+```python3 valid.py```
 
 You can modify the arch name in ```eval.py ``` line 11 and evaluate the score with:
 
-```python eval.py```
+```python3 eval.py```
 
-if you are satisfy the score, you can modify the arch name in ```submission.py ``` line 11 and the exp name in ```submission.py ``` line 12 and generate the final submission with:
+if you are satisfy the score, call ```submission.py ```, and fill three arguments testing dataset path, submission path, and the inference model just like:
 
-```python submission.py```
+```python3 submission.py --testing_path ../dataset/  --submission_path ../submission/  --model_path ../model_weight/UPP.pt```
+
+There is a folder ```submission ``` adding to testing path
+
+### Training Details
+
+- The model architecture we used is U-Net++ [[paper](https://arxiv.org/pdf/1807.10165.pdf)] [[docs](https://smp.readthedocs.io/en/latest/models.html#id2)] from [segmentation_models.pytorch](https://github.com/qubvel/segmentation_models.pytorch).
+- The encoder backbone we used seresnet101 from [pretrainmodels](https://github.com/Cadene/pretrained-models.pytorch/tree/master), which pretrain from imagenet.
+- We use Lovasz loss and binary cross entropy loss from [segmentation_models.pytorch](https://github.com/qubvel/segmentation_models.pytorch) as loss function, and the reciprocal of the pixel ratio of the two classes in the data set is used as the weight. We directly add the losses of the two and average
+- Max learing rate = 1e-3, Max epoch = 50, and Weight decay = 1e-4. We use the epoch with the biggest validation IoU as best weight.
+- Apply HorizontalFlip, RandomBrightnessContrast, GridDistortion, and Gaussian noise to augment data, and apply torchvision.transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+- We use Adam as optimizer

@@ -16,23 +16,38 @@ import time
 import os
 from tqdm.notebook import tqdm
 import random
-
+import shutil
 import segmentation_models_pytorch_v2 as smp
 import config as cfg
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument("--training_path", help="the path of training dataset")
+parser.add_argument("--output_model", help="the path of output model")
+args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.manual_seed(0)
 random.seed(0)
 np.random.seed(0)
 
-IMAGE_PATH = '../dataset/img/'
-MASK_PATH = '../dataset/mask/'
+os.mkdir(args.training_path+'/mask')
+os.mkdir(args.training_path+'/img')
+for s in ['S1','S2','S3','S4']:
+    for v in os.listdir(args.training_path+f'/{s}/'):
+        for frame in os.listdir(args.training_path+f'/{s}/{v}'):
+            if frame[-2]=='n':
+                shutil.copy(args.training_path+f'/{s}/{v}/{frame}', args.training_path+f'/mask/{s}_{v}_{frame}')
+            else:
+                shutil.copy(args.training_path+f'/{s}/{v}/{frame}', args.training_path+f'/img/{s}_{v}_{frame}')
+
+IMAGE_PATH = args.training_path+'/img/'
+MASK_PATH = args.training_path+'/mask/'
 
 mask_list=os.listdir(MASK_PATH)
 sum_0=0
 sum_1=0
 for m in mask_list:
-    label = cv2.imread('../dataset/mask/'+m, 0)
+    label = cv2.imread(MASK_PATH+m, 0)
     mask_0 = np.ones(label.shape)
     mask_1 = np.zeros(label.shape)
     mask_1[ label > 0 ] = 1  
@@ -260,7 +275,7 @@ def fit(epochs, model, train_loader, val_loader, criterion, criterion_lov, optim
     print('Total time: {:.2f} m' .format((time.time()- fit_time)/60))
     return history ,best_model
 
-max_lr = 1e-1
+max_lr = 1e-3
 epoch = cfg.epochs
 weight_decay = 1e-4
 class_weights3 = torch.FloatTensor(weights).to(device)
@@ -271,5 +286,4 @@ sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr, epochs=epoch,
                                             steps_per_epoch=len(train_loader))
 
 history ,best_model= fit(epoch, model, train_loader, val_loader, loss3, loss_lov, optimizer, sched)
-torch.save(best_model, cfg.weight_save_dir)
-pd.DataFrame(history).to_csv(cfg.l_curve_save_dir)
+torch.save(best_model, args.output_model)
